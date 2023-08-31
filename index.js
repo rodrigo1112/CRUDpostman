@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const Joi = require('joi');
+const db = require('./database');
 
 const app = express();
 const PORT = 3000;
@@ -78,6 +79,10 @@ app.delete('/productos/:id', (req, res) => {
   } else {
     res.status(404).send('Producto no encontrado');
   }
+});
+
+app.get('/productos', (req, res) => {
+  res.json(productos);
 });
 
 app.get('/productos/buscar/:nombre', (req, res) => {
