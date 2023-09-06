@@ -1,100 +1,113 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const Joi = require('joi');
-const db = require('./database');
+const mongoose = require('mongoose');
 
 const app = express();
 const PORT = 3000;
 
 app.use(bodyParser.json());
 
-const productosSchema = Joi.object({
-  nombre: Joi.string().required(),
-  color: Joi.string().required(),
-  precio: Joi.number().required(),
-  talle: Joi.string().required()
+mongoose.connect('mongodb://localhost/base-crud', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
 });
 
-const productos = [];
-let nextProductId = 1;
+const db = mongoose.connection;
 
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
-  next();
+db.on('error', (error) => {
+  console.error('Error de conexión a MongoDB:', error);
 });
 
-app.get('/productos/buscar/:nombre', (req, res) => {
+db.once('open', () => {
+  console.log('Conexión a MongoDB establecida correctamente');
+});
+
+const productoSchema = new mongoose.Schema({
+  nombre: String,
+  color: String,
+  precio: Number,
+  talle: String,
+});
+
+const Producto = mongoose.model('Producto', productoSchema);
+
+app.get('/productos/buscar/:nombre', async (req, res) => {
   const searchName = req.params.nombre.toLowerCase();
 
-  const matchedProducts = productos.filter(producto =>
-    producto.nombre.toLowerCase().includes(searchName) || producto.nombre.toLowerCase().includes(" " + searchName)
-  );
+  try {
+    const matchedProducts = await Producto.find({
+      nombre: { $regex: searchName, $options: 'i' },
+    });
 
-  res.json(matchedProducts);
-});
-
-
-app.post('/productos', (req, res) => {
-  const newProduct = req.body;
-  const { error, value } = productosSchema.validate(newProduct);
-
-  if (error) {
-    res.status(400).json({ error: error.details[0].message });
-    return;
+    res.json(matchedProducts);
+  } catch (error) {
+    console.error('Error al buscar productos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
-
-  const productWithId = { id: nextProductId++, ...value };
-  productos.push(productWithId);
-  
-  res.status(201).json(productWithId);
 });
 
-app.put('/productos/:id', (req, res) => {
+app.post('/productos', async (req, res) => {
+  const newProduct = req.body;
+
+  try {
+    const productoGuardado = await Producto.create(newProduct);
+    res.status(201).json(productoGuardado);
+  } catch (error) {
+    console.error('Error al guardar el producto:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.put('/productos/:id', async (req, res) => {
   const productId = req.params.id;
   const updatedProduct = req.body;
 
-  const index = productos.findIndex(product => product.id === Number(productId));
-  if (index !== -1) {
-    const { error, value } = productosSchema.validate(updatedProduct);
+  try {
+    const productoActualizado = await Producto.findByIdAndUpdate(
+      productId,
+      updatedProduct,
+      { new: true }
+    );
 
-    if (error) {
-      res.status(400).json(error);
-      return;
+    if (productoActualizado) {
+      res.json(productoActualizado);
+    } else {
+      res.status(404).send('Producto no encontrado');
     }
-
-    productos[index] = { ...productos[index], ...value };
-    res.json(productos[index]);
-  } else {
-    res.status(404).send('Producto no encontrado');
+  } catch (error) {
+    console.error('Error al actualizar el producto:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-app.delete('/productos/:id', (req, res) => {
+app.delete('/productos/:id', async (req, res) => {
   const productId = req.params.id;
 
-  const index = productos.findIndex(product => product.id === Number(productId));
-  if (index !== -1) {
-    const deletedProduct = productos.splice(index, 1)[0];
-    res.json(deletedProduct);
-  } else {
-    res.status(404).send('Producto no encontrado');
+  try {
+    const productoEliminado = await Producto.findByIdAndRemove(productId);
+
+    if (productoEliminado) {
+      res.json(productoEliminado);
+    } else {
+      res.status(404).send('Producto no encontrado');
+    }
+  } catch (error) {
+    console.error('Error al eliminar el producto:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-app.get('/productos', (req, res) => {
-  res.json(productos);
-});
-
-app.get('/productos/buscar/:nombre', (req, res) => {
-  const searchName = req.params.nombre.toLowerCase();
-
-  const matchedProducts = productos.filter(producto =>
-    producto.nombre.toLowerCase().includes(searchName)
-  );
-
-  res.json(matchedProducts);
+app.get('/productos', async (req, res) => {
+  try {
+    const productos = await Producto.find();
+    res.json(productos);
+  } catch (error) {
+    console.error('Error al obtener los productos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 app.listen(PORT, () => {
   console.log(`El servidor está corriendo en el puerto ${PORT}`);
 });
+

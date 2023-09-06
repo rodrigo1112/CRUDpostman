@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-require('dotenv').config();  // Cargar las variables de entorno
+require('dotenv').config();
 
 const dbURL = process.env.DB_URL;
 
