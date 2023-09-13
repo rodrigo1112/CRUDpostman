@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const { Producto, productoValidationSchema } = require('./producto'); // Importar el esquema y el modelo de producto
 
 const app = express();
 const PORT = 3000;
@@ -22,32 +23,15 @@ db.once('open', () => {
   console.log('Conexión a MongoDB establecida correctamente');
 });
 
-const productoSchema = new mongoose.Schema({
-  nombre: String,
-  color: String,
-  precio: Number,
-  talle: String,
-});
-
-const Producto = mongoose.model('Producto', productoSchema);
-
-app.get('/productos/buscar/:nombre', async (req, res) => {
-  const searchName = req.params.nombre.toLowerCase();
-
-  try {
-    const matchedProducts = await Producto.find({
-      nombre: { $regex: searchName, $options: 'i' },
-    });
-
-    res.json(matchedProducts);
-  } catch (error) {
-    console.error('Error al buscar productos:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
 app.post('/productos', async (req, res) => {
   const newProduct = req.body;
+
+  // Validar la solicitud usando el esquema de validación de Joi
+  const { error } = productoValidationSchema.validate(newProduct);
+
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
+  }
 
   try {
     const productoGuardado = await Producto.create(newProduct);

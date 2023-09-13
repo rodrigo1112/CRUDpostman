@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Joi = require('joi'); 
 
 const productoSchema = new mongoose.Schema({
   nombre: String,
@@ -7,4 +8,17 @@ const productoSchema = new mongoose.Schema({
   talle: String,
 });
 
-module.exports = mongoose.model('Producto', productoSchema);
+const productoValidationSchema = Joi.object({
+  nombre: Joi.string().min(3).required(),
+  color: Joi.string(),
+  precio: Joi.number().min(0).required(),
+  talle: Joi.string(),
+});
+
+const Producto = mongoose.model('Producto', productoSchema);
+
+module.exports = {
+  Producto,
+  productoValidationSchema,
+};
+
